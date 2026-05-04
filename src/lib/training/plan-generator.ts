@@ -188,6 +188,15 @@ const DAY_B_SLOTS: { name: string; options: ExerciseOption[] }[] = [
 
 type Slot = { name: string; options: ExerciseOption[] };
 
+/**
+ * Wähle die Mitte einer min/max Range — bei Mike's 5-7 ergibt das 6 (Sweet-Spot),
+ * bei classic 8-12 ergibt das 10. Wenn min/max nicht angegeben: fallback auf default.
+ */
+function rangeTarget(min: number | undefined, max: number | undefined, fallback: number): number {
+  if (min === undefined || max === undefined) return fallback;
+  return Math.round((min + max) / 2);
+}
+
 function buildDay(
   name: string,
   position: number,
@@ -196,8 +205,9 @@ function buildDay(
   prefs: Partial<TrainingPreferences>,
 ): PlanDayTemplate {
   const targetSets = prefs.workingSetsPerExercise ?? 2;
-  const targetReps = prefs.repRangeMin ?? 6;
-  const targetRir = prefs.preferredRirMin ?? 0;
+  // Mike: ZIEL ist die Mitte der Range (z.B. 5-7 → 6 Reps), nicht das Min.
+  const targetReps = rangeTarget(prefs.repRangeMin, prefs.repRangeMax, 6);
+  const targetRir = rangeTarget(prefs.preferredRirMin, prefs.preferredRirMax, 0);
   const warmupFirst = prefs.warmupSetsFirstExercise ?? 2;
   const warmupOthers = prefs.warmupSetsSubsequent ?? 1;
 

@@ -34,16 +34,32 @@ describe("generateFullbodyX2", () => {
     expect(dayA.exercises[1]!.warmupSets).toBe(1);
   });
 
-  it("respects user preferences for reps/rir", () => {
+  it("targets Mitte der Range — Iron Mike 5-7 ergibt 6", () => {
+    const plan = generateFullbodyX2(FULL_GYM, {
+      workingSetsPerExercise: 2,
+      repRangeMin: 5,
+      repRangeMax: 7,
+      preferredRirMin: 0,
+      preferredRirMax: 1,
+    });
+    const ex = plan.days[0]!.exercises[0]!;
+    expect(ex.targetSets).toBe(2);
+    expect(ex.targetReps).toBe(6); // Mitte von 5-7
+    expect(ex.targetRir).toBe(1); // Round von Mitte 0-1
+  });
+
+  it("classic style 8-12 reps gives target 10", () => {
     const plan = generateFullbodyX2(FULL_GYM, {
       workingSetsPerExercise: 3,
       repRangeMin: 8,
+      repRangeMax: 12,
       preferredRirMin: 1,
+      preferredRirMax: 3,
     });
     const ex = plan.days[0]!.exercises[0]!;
     expect(ex.targetSets).toBe(3);
-    expect(ex.targetReps).toBe(8);
-    expect(ex.targetRir).toBe(1);
+    expect(ex.targetReps).toBe(10);
+    expect(ex.targetRir).toBe(2);
   });
 
   it("Mike-konform: prefers leg-press over back-squat for quads", () => {
