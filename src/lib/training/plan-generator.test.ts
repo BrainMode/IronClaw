@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { type EquipmentType, generateFullbodyX2 } from "./plan-generator";
+import {
+  type EquipmentType,
+  generateFullbodyX2,
+  generateHomeQuick30,
+  generatePlanForLocation,
+} from "./plan-generator";
 
 const FULL_GYM: EquipmentType[] = [
   "barbell",
@@ -75,5 +80,73 @@ describe("generateFullbodyX2", () => {
     const slugs = dayB.exercises.map((e) => e.exerciseSlug);
     const unique = new Set(slugs);
     expect(slugs.length).toBe(unique.size);
+  });
+});
+
+describe("generateHomeQuick30", () => {
+  it("creates 2 days with KB+Band+Bodyweight", () => {
+    const plan = generateHomeQuick30(["kettlebell", "resistance_band", "bodyweight"]);
+    expect(plan.name).toBe("Home Quick 30");
+    expect(plan.days).toHaveLength(2);
+    expect(plan.days[0]!.name).toBe("Home A — Push");
+    expect(plan.days[1]!.name).toBe("Home B — Pull");
+    expect(plan.days[0]!.exercises.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("prefers KB over Band over Bodyweight", () => {
+    const plan = generateHomeQuick30(["kettlebell", "resistance_band", "bodyweight"]);
+    const press = plan.days[0]!.exercises.find((e) =>
+      ["kb-floor-press", "band-press", "push-up"].includes(e.exerciseSlug),
+    );
+    expect(press?.exerciseSlug).toBe("kb-floor-press");
+  });
+
+  it("falls back to bands when no KB", () => {
+    const plan = generateHomeQuick30(["resistance_band", "bodyweight"]);
+    const press = plan.days[0]!.exercises.find((e) =>
+      ["kb-floor-press", "band-press", "push-up"].includes(e.exerciseSlug),
+    );
+    expect(press?.exerciseSlug).toBe("band-press");
+  });
+
+  it("falls back to bodyweight when no KB and no bands", () => {
+    const plan = generateHomeQuick30(["bodyweight"]);
+    const press = plan.days[0]!.exercises.find((e) =>
+      ["kb-floor-press", "band-press", "push-up"].includes(e.exerciseSlug),
+    );
+    expect(press?.exerciseSlug).toBe("push-up");
+  });
+
+  it("uses minimal warmup sets for home (1 instead of 2)", () => {
+    const plan = generateHomeQuick30(["kettlebell", "resistance_band"]);
+    expect(plan.days[0]!.exercises[0]!.warmupSets).toBe(1);
+  });
+});
+
+describe("generatePlanForLocation", () => {
+  it("returns Iron Mike plan for 'gym'", () => {
+    const plan = generatePlanForLocation("gym", [
+      "barbell",
+      "bench",
+      "squat_rack",
+      "cable",
+      "dumbbell",
+    ]);
+    expect(plan.name).toBe("GK 2× — Iron Mike");
+  });
+
+  it("returns Home Quick plan for 'home'", () => {
+    const plan = generatePlanForLocation("home", ["kettlebell", "resistance_band"]);
+    expect(plan.name).toBe("Home Quick 30");
+  });
+
+  it("returns Home Quick plan for 'travel'", () => {
+    const plan = generatePlanForLocation("travel", ["resistance_band"]);
+    expect(plan.name).toBe("Home Quick 30");
+  });
+
+  it("returns Iron Mike plan for unknown custom locations", () => {
+    const plan = generatePlanForLocation("custom-1", ["barbell", "squat_rack"]);
+    expect(plan.name).toBe("GK 2× — Iron Mike");
   });
 });

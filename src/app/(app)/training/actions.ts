@@ -1,13 +1,25 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { type EquipmentType, generateFullbodyX2 } from "@/lib/training/plan-generator";
+import { type EquipmentType, generatePlanForLocation } from "@/lib/training/plan-generator";
 import { getTrainingPreferences } from "@/lib/training/queries";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-export async function saveEquipment(
-  equipment: EquipmentType[],
+export interface LocationInput {
+  /** Existing location id (update) or null (create new) */
+  id?: string | null;
+  key: string;
+  display_name: string;
+  equipment: EquipmentType[];
+}
+
+/**
+ * Saves a list of locations (idempotent upsert) for the current user.
+ * Locations not in the input get deleted (cascades to user_equipment).
+ */
+export async function saveLocations(
+  locations: LocationInput[],
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
   const {
@@ -15,109 +27,64 @@ export async function saveEquipment(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Nicht eingeloggt." };
 
-  // Wipe and reinsert (max 18 rows, simpler than diff)
-  await supabase.from("user_equipment").delete().eq("user_id", user.id);
-  if (equipment.length > 0) {
-    const rows = equipment.map((e) => ({
-      user_id: user.id,
-      equipment: e,
-      available: true,
-    }));
-    const { error } = await supabase.from("user_equipment").insert(rows);
-    if (error) return { ok: false, error: error.message };
-  }
-  revalidatePath("/training");
-  return { ok: true };
-}
+  // Existing locations
+  const { data: existing } = await supabase.from("equipment_locations").select("id, key");
+  const existingKeys = new Set((existing ?? []).map((l) => l.key));
+  const inputKeys = new Set(locations.map((l) => l.key));
 
-export async function generatePlan(): Promise<{ ok: true } | { ok: false; error: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Nicht eingeloggt." };
-
-  const { data: equipment } = await supabase
-    .from("user_equipment")
-    .select("equipment")
-    .eq("available", true);
-  const eqList = (equipment ?? []).map((e) => e.equipment as EquipmentType);
-
-  const prefs = await getTrainingPreferences();
-  const template = generateFullbodyX2(eqList, prefs ?? {});
-
-  if (template.days.every((d) => d.exercises.length === 0)) {
-    return {
-      ok: false,
-      error:
-        "Keine Übungen mit dem ausgewählten Equipment generierbar. Bitte mehr Equipment auswählen.",
-    };
+  // Delete locations no longer in input (cascades to user_equipment)
+  const toDelete = (existing ?? []).filter((l) => !inputKeys.has(l.key));
+  if (toDelete.length > 0) {
+    await supabase
+      .from("equipment_locations")
+      .delete()
+      .in(
+        "id",
+        toDelete.map((l) => l.id),
+      );
   }
 
-  // Deactivate any existing active plan
-  await supabase
-    .from("training_plans")
-    .update({ is_active: false })
-    .eq("user_id", user.id)
-    .eq("is_active", true);
+  // Upsert each location + its equipment
+  for (let i = 0; i < locations.length; i++) {
+    const loc = locations[i];
+    if (!loc) continue;
 
-  // Create plan
-  const { data: plan, error: planError } = await supabase
-    .from("training_plans")
-    .insert({
-      user_id: user.id,
-      name: template.name,
-      description: template.description,
-      is_active: true,
-    })
-    .select("id")
-    .single();
-  if (planError || !plan) return { ok: false, error: planError?.message ?? "Plan-Insert failed" };
-
-  // Resolve exercise slugs → IDs in one query
-  const allSlugs = template.days.flatMap((d) => d.exercises.map((e) => e.exerciseSlug));
-  const { data: exercises } = await supabase
-    .from("exercises")
-    .select("id, slug")
-    .in("slug", allSlugs);
-  const slugToId = new Map((exercises ?? []).map((e) => [e.slug, e.id]));
-
-  // Insert days + exercises
-  for (const day of template.days) {
-    const { data: dayRow, error: dayError } = await supabase
-      .from("training_plan_days")
-      .insert({
-        plan_id: plan.id,
-        position: day.position,
-        name: day.name,
-      })
-      .select("id")
-      .single();
-    if (dayError || !dayRow) {
-      return { ok: false, error: dayError?.message ?? "Day-Insert failed" };
+    let locationId = loc.id ?? null;
+    if (!locationId || !existingKeys.has(loc.key)) {
+      const { data: inserted, error: insErr } = await supabase
+        .from("equipment_locations")
+        .upsert(
+          {
+            user_id: user.id,
+            key: loc.key,
+            display_name: loc.display_name,
+            position: i,
+          },
+          { onConflict: "user_id,key" },
+        )
+        .select("id")
+        .single();
+      if (insErr || !inserted) {
+        return { ok: false, error: insErr?.message ?? "Location-Insert failed" };
+      }
+      locationId = inserted.id;
+    } else {
+      await supabase
+        .from("equipment_locations")
+        .update({ display_name: loc.display_name, position: i })
+        .eq("id", locationId);
     }
 
-    if (day.exercises.length === 0) continue;
-
-    const exerciseRows = day.exercises
-      .map((ex, idx) => {
-        const exerciseId = slugToId.get(ex.exerciseSlug);
-        if (!exerciseId) return null;
-        return {
-          plan_day_id: dayRow.id,
-          exercise_id: exerciseId,
-          position: idx + 1,
-          target_sets: ex.targetSets,
-          target_reps: ex.targetReps,
-          target_rir: ex.targetRir,
-          warmup_sets: ex.warmupSets,
-          notes: ex.notes ?? null,
-        };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
-
-    if (exerciseRows.length > 0) {
-      const { error } = await supabase.from("training_plan_exercises").insert(exerciseRows);
+    // Wipe + reinsert equipment for this location
+    await supabase.from("user_equipment").delete().eq("location_id", locationId);
+    if (loc.equipment.length > 0) {
+      const rows = loc.equipment.map((e) => ({
+        user_id: user.id,
+        equipment: e,
+        available: true,
+        location_id: locationId,
+      }));
+      const { error } = await supabase.from("user_equipment").insert(rows);
       if (error) return { ok: false, error: error.message };
     }
   }
@@ -126,42 +93,123 @@ export async function generatePlan(): Promise<{ ok: true } | { ok: false; error:
   return { ok: true };
 }
 
-export async function startSession(planDayId: string): Promise<string> {
+/**
+ * Generates plans for all configured locations.
+ * Each location gets its own active plan (Iron Mike for gym, Home Quick 30 for home/travel).
+ */
+export async function generateAllPlans(): Promise<
+  { ok: true; created: number } | { ok: false; error: string }
+> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Nicht eingeloggt.");
+  if (!user) return { ok: false, error: "Nicht eingeloggt." };
 
-  const { data, error } = await supabase
-    .from("workout_sessions")
-    .insert({
-      user_id: user.id,
-      plan_day_id: planDayId,
-    })
-    .select("id")
-    .single();
-  if (error || !data) throw new Error(error?.message ?? "Session-Insert failed");
-  return data.id;
+  const { data: locs } = await supabase.from("equipment_locations").select("id, key, display_name");
+  if (!locs || locs.length === 0) {
+    return { ok: false, error: "Keine Locations definiert." };
+  }
+
+  const prefs = await getTrainingPreferences();
+
+  let created = 0;
+  for (const loc of locs) {
+    // Equipment for this location
+    const { data: eqRows } = await supabase
+      .from("user_equipment")
+      .select("equipment")
+      .eq("location_id", loc.id)
+      .eq("available", true);
+    const equipment = (eqRows ?? []).map((e) => e.equipment as EquipmentType);
+    if (equipment.length === 0) continue;
+
+    const template = generatePlanForLocation(loc.key, equipment, prefs ?? {});
+    if (template.days.every((d) => d.exercises.length === 0)) continue;
+
+    // Deactivate existing plan for this location
+    await supabase
+      .from("training_plans")
+      .update({ is_active: false })
+      .eq("user_id", user.id)
+      .eq("location_id", loc.id)
+      .eq("is_active", true);
+
+    const { data: plan, error: planErr } = await supabase
+      .from("training_plans")
+      .insert({
+        user_id: user.id,
+        name: `${template.name} — ${loc.display_name}`,
+        description: template.description,
+        is_active: true,
+        location_id: loc.id,
+      })
+      .select("id")
+      .single();
+    if (planErr || !plan) continue;
+
+    const allSlugs = template.days.flatMap((d) => d.exercises.map((e) => e.exerciseSlug));
+    const { data: exercises } = await supabase
+      .from("exercises")
+      .select("id, slug")
+      .in("slug", allSlugs);
+    const slugToId = new Map((exercises ?? []).map((e) => [e.slug, e.id]));
+
+    for (const day of template.days) {
+      const { data: dayRow } = await supabase
+        .from("training_plan_days")
+        .insert({
+          plan_id: plan.id,
+          position: day.position,
+          name: day.name,
+        })
+        .select("id")
+        .single();
+      if (!dayRow || day.exercises.length === 0) continue;
+
+      const exerciseRows = day.exercises
+        .map((ex, idx) => {
+          const exerciseId = slugToId.get(ex.exerciseSlug);
+          if (!exerciseId) return null;
+          return {
+            plan_day_id: dayRow.id,
+            exercise_id: exerciseId,
+            position: idx + 1,
+            target_sets: ex.targetSets,
+            target_reps: ex.targetReps,
+            target_rir: ex.targetRir,
+            warmup_sets: ex.warmupSets,
+            notes: ex.notes ?? null,
+          };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+      if (exerciseRows.length > 0) {
+        await supabase.from("training_plan_exercises").insert(exerciseRows);
+      }
+    }
+    created += 1;
+  }
+
+  revalidatePath("/training");
+  return { ok: true, created };
 }
 
-export async function startNextSession(): Promise<void> {
+export async function startNextSessionForLocation(locationId: string): Promise<void> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Nicht eingeloggt.");
 
-  // Find active plan
   const { data: plan } = await supabase
     .from("training_plans")
     .select("id")
     .eq("user_id", user.id)
     .eq("is_active", true)
+    .eq("location_id", locationId)
     .maybeSingle();
-  if (!plan) throw new Error("Kein aktiver Plan — bitte erst Setup durchlaufen.");
+  if (!plan) throw new Error("Kein aktiver Plan für diese Location.");
 
-  // Look up plan days in order
   const { data: days } = await supabase
     .from("training_plan_days")
     .select("id, position")
@@ -169,11 +217,12 @@ export async function startNextSession(): Promise<void> {
     .order("position");
   if (!days || days.length === 0) throw new Error("Plan hat keine Tage.");
 
-  // Pick next day based on last session: alternate
+  // Find last session for this specific location
   const { data: lastSession } = await supabase
     .from("workout_sessions")
     .select("plan_day_id")
     .eq("user_id", user.id)
+    .eq("location_id", locationId)
     .order("started_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -185,8 +234,18 @@ export async function startNextSession(): Promise<void> {
   }
   if (!nextDay) throw new Error("Konnte nächsten Tag nicht ermitteln.");
 
-  const sessionId = await startSession(nextDay.id);
-  redirect(`/training/session/${sessionId}`);
+  const { data: session, error } = await supabase
+    .from("workout_sessions")
+    .insert({
+      user_id: user.id,
+      plan_day_id: nextDay.id,
+      location_id: locationId,
+    })
+    .select("id")
+    .single();
+  if (error || !session) throw new Error(error?.message ?? "Session-Insert failed");
+
+  redirect(`/training/session/${session.id}`);
 }
 
 export async function logSet(input: {

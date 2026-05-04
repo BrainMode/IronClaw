@@ -2,19 +2,24 @@
 
 import { Button } from "@/components/ui/button";
 import { useTransition } from "react";
-import { startNextSession } from "./actions";
+import { startNextSessionForLocation } from "./actions";
 
-export function StartSessionButton() {
+interface StartSessionButtonProps {
+  locationId: string;
+  locationLabel: string;
+}
+
+export function StartSessionButton({ locationId, locationLabel }: StartSessionButtonProps) {
   const [isPending, startTransition] = useTransition();
 
   return (
     <Button
       disabled={isPending}
-      onClick={() => startTransition(() => startNextSession())}
+      onClick={() => startTransition(() => startNextSessionForLocation(locationId))}
       className="w-full"
       size="lg"
     >
-      {isPending ? "Starte…" : "Session starten"}
+      {isPending ? "Starte…" : `Heute hier trainieren (${locationLabel})`}
     </Button>
   );
 }

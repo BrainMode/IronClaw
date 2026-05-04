@@ -179,42 +179,177 @@ const DAY_B_SLOTS: { name: string; options: ExerciseOption[] }[] = [
   },
 ];
 
-export function generateFullbodyX2(
+type Slot = { name: string; options: ExerciseOption[] };
+
+function buildDay(
+  name: string,
+  position: number,
+  slots: Slot[],
   available: EquipmentType[],
-  prefs: Partial<TrainingPreferences> = {},
-): PlanTemplate {
+  prefs: Partial<TrainingPreferences>,
+): PlanDayTemplate {
   const targetSets = prefs.workingSetsPerExercise ?? 2;
   const targetReps = prefs.repRangeMin ?? 6;
   const targetRir = prefs.preferredRirMin ?? 0;
   const warmupFirst = prefs.warmupSetsFirstExercise ?? 2;
   const warmupOthers = prefs.warmupSetsSubsequent ?? 1;
 
-  function buildDay(name: string, position: number, slots: typeof DAY_A_SLOTS): PlanDayTemplate {
-    const exercises: PlanExerciseTemplate[] = [];
-    for (let i = 0; i < slots.length; i++) {
-      const slot = slots[i];
-      if (!slot) continue;
-      const slug = pickByEquipment(slot.options, available);
-      if (!slug) continue;
-      // De-dupe falls 2 Slots dieselbe Übung wählen würden (selten, aber möglich)
-      if (exercises.some((e) => e.exerciseSlug === slug)) continue;
-      exercises.push({
-        exerciseSlug: slug,
-        targetSets,
-        targetReps,
-        targetRir,
-        warmupSets: i === 0 ? warmupFirst : warmupOthers,
-        notes: slot.name,
-      });
-    }
-    return { name, position, exercises };
+  const exercises: PlanExerciseTemplate[] = [];
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i];
+    if (!slot) continue;
+    const slug = pickByEquipment(slot.options, available);
+    if (!slug) continue;
+    if (exercises.some((e) => e.exerciseSlug === slug)) continue;
+    exercises.push({
+      exerciseSlug: slug,
+      targetSets,
+      targetReps,
+      targetRir,
+      warmupSets: i === 0 ? warmupFirst : warmupOthers,
+      notes: slot.name,
+    });
   }
+  return { name, position, exercises };
+}
 
+export function generateFullbodyX2(
+  available: EquipmentType[],
+  prefs: Partial<TrainingPreferences> = {},
+): PlanTemplate {
   return {
     name: "GK 2× — Iron Mike",
     description:
       "Ganzkörper-Split, 2× pro Woche. Pro Übung 1-2 Working Sets bis Muskelversagen, " +
-      "5-7 Reps. Day A betont Squat + Vertical Pull, Day B betont Hip Hinge + Horizontal Pull.",
-    days: [buildDay("Ganzkörper A", 1, DAY_A_SLOTS), buildDay("Ganzkörper B", 2, DAY_B_SLOTS)],
+      "5-7 Reps. Day A: Squat + Vertical Pull, Day B: Hip Hinge + Horizontal Pull.",
+    days: [
+      buildDay("Ganzkörper A", 1, DAY_A_SLOTS, available, prefs),
+      buildDay("Ganzkörper B", 2, DAY_B_SLOTS, available, prefs),
+    ],
   };
+}
+
+// ============================================================================
+// HOME-GYM QUICK PLAN — Kettlebell + Band + Bodyweight, 4-5 Übungen, ~30min
+// ============================================================================
+
+const HOME_DAY_A_SLOTS: Slot[] = [
+  {
+    name: "Quads (Squat / Lunge)",
+    options: [
+      { slug: "kb-bulgarian-split-squat", requires: ["kettlebell"] },
+      { slug: "kb-goblet-squat", requires: ["kettlebell"] },
+      { slug: "bw-bulgarian-split-squat", requires: ["bodyweight"] },
+    ],
+  },
+  {
+    name: "Horizontal Press (Chest)",
+    options: [
+      { slug: "kb-floor-press", requires: ["kettlebell"] },
+      { slug: "band-press", requires: ["resistance_band"] },
+      { slug: "push-up", requires: ["bodyweight"] },
+    ],
+  },
+  {
+    name: "Vertical Pull (Lats)",
+    options: [
+      { slug: "band-pulldown", requires: ["resistance_band"] },
+      { slug: "inverted-row", requires: ["bodyweight"] },
+    ],
+  },
+  {
+    name: "Tricep (long head stretch)",
+    options: [
+      { slug: "kb-tricep-extension", requires: ["kettlebell"] },
+      { slug: "band-overhead-tricep", requires: ["resistance_band"] },
+    ],
+  },
+  {
+    name: "Bicep",
+    options: [
+      { slug: "kb-curl", requires: ["kettlebell"] },
+      { slug: "band-curl", requires: ["resistance_band"] },
+    ],
+  },
+];
+
+const HOME_DAY_B_SLOTS: Slot[] = [
+  {
+    name: "Hip Hinge (Hamstrings/Glutes)",
+    options: [
+      { slug: "kb-swing", requires: ["kettlebell"] },
+      { slug: "kb-rdl", requires: ["kettlebell"] },
+      { slug: "kb-suitcase-deadlift", requires: ["kettlebell"] },
+    ],
+  },
+  {
+    name: "Horizontal Pull (Back upper)",
+    options: [
+      { slug: "kb-row-bent", requires: ["kettlebell"] },
+      { slug: "band-row-seated", requires: ["resistance_band"] },
+      { slug: "inverted-row", requires: ["bodyweight"] },
+    ],
+  },
+  {
+    name: "Vertical Press (Shoulders)",
+    options: [
+      { slug: "kb-press-overhead", requires: ["kettlebell"] },
+      { slug: "bw-pike-push-up", requires: ["bodyweight"] },
+    ],
+  },
+  {
+    name: "Side Delts",
+    options: [{ slug: "band-lateral-raise", requires: ["resistance_band"] }],
+  },
+  {
+    name: "Posture / Rear Delts",
+    options: [{ slug: "band-pull-apart", requires: ["resistance_band"] }],
+  },
+];
+
+/**
+ * Home-Quick-30 — 4-5 Übungen, ~25-30 min Working + 10-15 min Aufwärmen.
+ * Iron-Mike-konform: 1-2 Working Sets bis Versagen, 5-7 Reps, RIR=0.
+ *
+ * Bei Equipment-Mangel (z.B. nur Bands) fallen einzelne Slots weg —
+ * Plan kann mit nur 3-4 Übungen rauskommen, das ist OK.
+ */
+export function generateHomeQuick30(
+  available: EquipmentType[],
+  prefs: Partial<TrainingPreferences> = {},
+): PlanTemplate {
+  // Reduziertes Aufwärmen bei Home — kein Cold-Start nach Anfahrt
+  const homePrefs: Partial<TrainingPreferences> = {
+    ...prefs,
+    warmupSetsFirstExercise: prefs.warmupSetsFirstExercise ?? 1,
+    warmupSetsSubsequent: prefs.warmupSetsSubsequent ?? 1,
+  };
+
+  return {
+    name: "Home Quick 30",
+    description:
+      "Home-Variante mit Kettlebell + Bands + Bodyweight. " +
+      "5 Übungen pro Session, 1-2 Working Sets bis Muskelversagen, ~30 min. " +
+      "Day A: Push + Quads, Day B: Pull + Hinge + Posture.",
+    days: [
+      buildDay("Home A — Push", 1, HOME_DAY_A_SLOTS, available, homePrefs),
+      buildDay("Home B — Pull", 2, HOME_DAY_B_SLOTS, available, homePrefs),
+    ],
+  };
+}
+
+/**
+ * Wählt den passenden Plan-Generator basierend auf Location-Key.
+ * 'gym' → Iron Mike fullbody_x2 mit voller Equipment-Range
+ * 'home' / 'travel' → Home-Quick-30 mit KB/Band/Bodyweight
+ */
+export function generatePlanForLocation(
+  locationKey: string,
+  available: EquipmentType[],
+  prefs: Partial<TrainingPreferences> = {},
+): PlanTemplate {
+  if (locationKey === "home" || locationKey === "travel") {
+    return generateHomeQuick30(available, prefs);
+  }
+  return generateFullbodyX2(available, prefs);
 }

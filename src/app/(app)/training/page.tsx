@@ -7,15 +7,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getActivePlan, getRecentSessions } from "@/lib/training/queries";
+import { getAllActivePlans, getLocations, getRecentSessions } from "@/lib/training/queries";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { StartSessionButton } from "./start-session-button";
 
 export default async function TrainingPage() {
-  const active = await getActivePlan();
+  const locations = await getLocations();
 
-  if (!active) {
+  if (locations.length === 0) {
+    redirect("/training/setup");
+  }
+
+  const allPlans = await getAllActivePlans();
+  const hasAnyPlan = allPlans.some((x) => x.plan !== null);
+
+  if (!hasAnyPlan) {
     redirect("/training/setup");
   }
 
@@ -26,7 +33,9 @@ export default async function TrainingPage() {
       <div className="flex items-end justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Training</h2>
-          <p className="text-(--color-muted-foreground)">{active.plan.name}</p>
+          <p className="text-(--color-muted-foreground)">
+            {locations.length} {locations.length === 1 ? "Trainings-Ort" : "Trainings-Orte"}
+          </p>
         </div>
         <Link
           href="/training/history"
@@ -36,38 +45,72 @@ export default async function TrainingPage() {
         </Link>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Heute trainieren</CardTitle>
-          <CardDescription>Starte die nächste Session aus deinem Plan.</CardDescription>
-        </CardHeader>
-        <CardFooter>
-          <StartSessionButton />
-        </CardFooter>
-      </Card>
-
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold">Plan-Übersicht</h3>
-        {active.days.map((day) => (
-          <Card key={day.id}>
+      {/* Per-location cards with Start button + plan summary */}
+      <div className="space-y-4">
+        {allPlans.map(({ location, plan }) => (
+          <Card key={location.id}>
             <CardHeader>
-              <CardTitle className="text-base">{day.name}</CardTitle>
-              <CardDescription>{day.exercises.length} Übungen</CardDescription>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle>{location.display_name}</CardTitle>
+                  <CardDescription>
+                    {plan ? plan.plan.name : "Kein Plan generiert"} · {location.equipment.length}{" "}
+                    Geräte
+                  </CardDescription>
+                </div>
+                {plan && (
+                  <span className="text-xs text-(--color-muted-foreground) tabular-nums">
+                    {plan.days.length}× / Woche
+                  </span>
+                )}
+              </div>
             </CardHeader>
-            <CardContent>
-              <ol className="space-y-2">
-                {[...day.exercises]
-                  .sort((a, b) => a.position - b.position)
-                  .map((ex) => (
-                    <li key={ex.id} className="flex items-center justify-between text-sm">
-                      <span>{ex.exercise?.name_de ?? "—"}</span>
-                      <span className="text-(--color-muted-foreground) tabular-nums">
-                        {ex.target_sets} × {ex.target_reps} @ RIR {ex.target_rir}
-                      </span>
-                    </li>
-                  ))}
-              </ol>
-            </CardContent>
+            {plan ? (
+              <>
+                <CardContent>
+                  <div className="space-y-3">
+                    {plan.days.map((day) => (
+                      <details key={day.id} className="text-sm">
+                        <summary className="cursor-pointer font-medium hover:text-(--color-foreground)">
+                          {day.name} · {day.exercises.length} Übungen
+                        </summary>
+                        <ol className="mt-2 space-y-1 ml-4">
+                          {[...day.exercises]
+                            .sort((a, b) => a.position - b.position)
+                            .map((ex) => (
+                              <li
+                                key={ex.id}
+                                className="flex items-center justify-between text-(--color-muted-foreground)"
+                              >
+                                <span>{ex.exercise?.name_de ?? "—"}</span>
+                                <span className="tabular-nums">
+                                  {ex.target_sets} × {ex.target_reps} @ RIR {ex.target_rir}
+                                </span>
+                              </li>
+                            ))}
+                        </ol>
+                      </details>
+                    ))}
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <StartSessionButton
+                    locationId={location.id}
+                    locationLabel={location.display_name}
+                  />
+                </CardFooter>
+              </>
+            ) : (
+              <CardContent>
+                <p className="text-sm text-(--color-muted-foreground)">
+                  Equipment-Inventar gespeichert, aber Plan-Generierung schlug fehl. Geh zu{" "}
+                  <Link href="/training/setup" className="underline">
+                    Setup
+                  </Link>{" "}
+                  und füge mehr Equipment hinzu.
+                </p>
+              </CardContent>
+            )}
           </Card>
         ))}
       </div>
@@ -100,12 +143,12 @@ export default async function TrainingPage() {
         </div>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end pt-2">
         <Link
           href="/training/setup"
           className="text-sm text-(--color-muted-foreground) hover:text-(--color-foreground)"
         >
-          Plan neu generieren
+          Locations + Equipment editieren
         </Link>
       </div>
     </div>

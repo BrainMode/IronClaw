@@ -63,6 +63,73 @@ export async function getUserEquipment(): Promise<string[]> {
   return (data ?? []).map((e) => e.equipment as string);
 }
 
+// =============================================================================
+// LOCATIONS
+// =============================================================================
+
+export interface EquipmentLocation {
+  id: string;
+  key: string;
+  display_name: string;
+  position: number;
+  equipment: string[];
+}
+
+export async function getLocations(): Promise<EquipmentLocation[]> {
+  const supabase = await createClient();
+  const { data: locs } = await supabase
+    .from("equipment_locations")
+    .select("id, key, display_name, position")
+    .order("position");
+  if (!locs || locs.length === 0) return [];
+
+  const { data: eq } = await supabase
+    .from("user_equipment")
+    .select("location_id, equipment")
+    .eq("available", true)
+    .in(
+      "location_id",
+      locs.map((l) => l.id),
+    );
+
+  const eqByLoc = new Map<string, string[]>();
+  for (const row of eq ?? []) {
+    const list = eqByLoc.get(row.location_id) ?? [];
+    list.push(row.equipment);
+    eqByLoc.set(row.location_id, list);
+  }
+
+  return locs.map((l) => ({
+    id: l.id,
+    key: l.key,
+    display_name: l.display_name,
+    position: l.position,
+    equipment: eqByLoc.get(l.id) ?? [],
+  }));
+}
+
+export async function getLocationById(id: string): Promise<EquipmentLocation | null> {
+  const supabase = await createClient();
+  const { data: loc } = await supabase
+    .from("equipment_locations")
+    .select("id, key, display_name, position")
+    .eq("id", id)
+    .maybeSingle();
+  if (!loc) return null;
+  const { data: eq } = await supabase
+    .from("user_equipment")
+    .select("equipment")
+    .eq("available", true)
+    .eq("location_id", id);
+  return {
+    id: loc.id,
+    key: loc.key,
+    display_name: loc.display_name,
+    position: loc.position,
+    equipment: (eq ?? []).map((e) => e.equipment),
+  };
+}
+
 export interface ExerciseRow {
   id: string;
   slug: string;
@@ -90,18 +157,35 @@ export interface PlanDayRow {
 }
 
 export interface ActivePlan {
-  plan: { id: string; name: string; description: string | null };
+  plan: { id: string; name: string; description: string | null; location_id: string | null };
   days: PlanDayRow[];
 }
 
-export async function getActivePlan(): Promise<ActivePlan | null> {
+export async function getAllActivePlans(): Promise<
+  {
+    location: EquipmentLocation;
+    plan: ActivePlan | null;
+  }[]
+> {
+  const locs = await getLocations();
+  const result = [];
+  for (const loc of locs) {
+    const plan = await getActivePlan(loc.id);
+    result.push({ location: loc, plan });
+  }
+  return result;
+}
+
+export async function getActivePlan(locationId?: string | null): Promise<ActivePlan | null> {
   const supabase = await createClient();
-  const { data: plan } = await supabase
+  let query = supabase
     .from("training_plans")
-    .select("id, name, description, is_active")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .maybeSingle();
+    .select("id, name, description, is_active, location_id")
+    .eq("is_active", true);
+  if (locationId) {
+    query = query.eq("location_id", locationId);
+  }
+  const { data: plan } = await query.order("created_at", { ascending: false }).maybeSingle();
   if (!plan) return null;
 
   const { data: rawDays } = await supabase
@@ -144,7 +228,15 @@ export async function getActivePlan(): Promise<ActivePlan | null> {
     }),
   );
 
-  return { plan: { id: plan.id, name: plan.name, description: plan.description }, days };
+  return {
+    plan: {
+      id: plan.id,
+      name: plan.name,
+      description: plan.description,
+      location_id: plan.location_id ?? null,
+    },
+    days,
+  };
 }
 
 export async function getLastSessionForExercise(exerciseId: string) {
