@@ -1,0 +1,24 @@
+* text=auto eol=lf
+
+# Force LF for shell scripts (Windows users editing won't break them)
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Binary files (no text conversion)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.keystore binary
+*.jks binary
+*.so binary
+*.dylib binary
+
+# Lock-file: stable LF
+package-lock.json text eol=lf merge=union
