@@ -151,9 +151,21 @@ export async function generateAllPlans(): Promise<
     const allSlugs = template.days.flatMap((d) => d.exercises.map((e) => e.exerciseSlug));
     const { data: exercises } = await supabase
       .from("exercises")
-      .select("id, slug")
+      .select(
+        "id, slug, recommended_rep_min, recommended_rep_max, recommended_rir_min, recommended_rir_max",
+      )
       .in("slug", allSlugs);
-    const slugToId = new Map((exercises ?? []).map((e) => [e.slug, e.id]));
+    type ExerciseRecord = {
+      id: string;
+      slug: string;
+      recommended_rep_min: number | null;
+      recommended_rep_max: number | null;
+      recommended_rir_min: number | null;
+      recommended_rir_max: number | null;
+    };
+    const slugToExercise = new Map<string, ExerciseRecord>(
+      (exercises ?? []).map((e) => [e.slug, e]),
+    );
 
     for (const day of template.days) {
       const { data: dayRow } = await supabase
@@ -169,15 +181,28 @@ export async function generateAllPlans(): Promise<
 
       const exerciseRows = day.exercises
         .map((ex, idx) => {
-          const exerciseId = slugToId.get(ex.exerciseSlug);
-          if (!exerciseId) return null;
+          const ed = slugToExercise.get(ex.exerciseSlug);
+          if (!ed) return null;
+
+          // Übungs-spezifische Empfehlung überschreibt Template-Default.
+          // Beispiel: KB-Swing → 15-25 Reps RIR 1-3 (Conditioning), nicht
+          // Iron-Mike-Default 6 Reps RIR 0.
+          const targetReps =
+            ed.recommended_rep_min !== null && ed.recommended_rep_max !== null
+              ? Math.round((ed.recommended_rep_min + ed.recommended_rep_max) / 2)
+              : ex.targetReps;
+          const targetRir =
+            ed.recommended_rir_min !== null && ed.recommended_rir_max !== null
+              ? Math.round((ed.recommended_rir_min + ed.recommended_rir_max) / 2)
+              : ex.targetRir;
+
           return {
             plan_day_id: dayRow.id,
-            exercise_id: exerciseId,
+            exercise_id: ed.id,
             position: idx + 1,
             target_sets: ex.targetSets,
-            target_reps: ex.targetReps,
-            target_rir: ex.targetRir,
+            target_reps: targetReps,
+            target_rir: targetRir,
             warmup_sets: ex.warmupSets,
             notes: ex.notes ?? null,
           };

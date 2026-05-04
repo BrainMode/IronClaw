@@ -299,11 +299,13 @@ const HOME_DAY_A_SLOTS: Slot[] = [
 const HOME_DAY_B_SLOTS: Slot[] = [
   {
     name: "Hip Hinge (Hamstrings/Glutes)",
+    // KB-RDL zuerst: lineare Progression möglich, Mike-konformes 5-8 Reps Profil.
+    // KB-Swing als letzte Option weil Conditioning-Move (15-25 Reps), nicht
+    // klassisches Working-Set bis Versagen.
     options: [
-      // TRX hat keinen sinnvollen Hinge — KB ist hier optimal
-      { slug: "kb-swing", requires: ["kettlebell"] },
       { slug: "kb-rdl", requires: ["kettlebell"] },
       { slug: "kb-suitcase-deadlift", requires: ["kettlebell"] },
+      { slug: "kb-swing", requires: ["kettlebell"] },
     ],
   },
   {
