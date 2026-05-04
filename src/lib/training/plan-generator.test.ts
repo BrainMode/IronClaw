@@ -1,0 +1,248 @@
+import { describe, expect, it } from "vitest";
+import {
+  type EquipmentType,
+  generateFullbodyX2,
+  generateHomeQuick30,
+  generatePlanForLocation,
+} from "./plan-generator";
+
+const FULL_GYM: EquipmentType[] = [
+  "barbell",
+  "dumbbell",
+  "cable",
+  "machine",
+  "bench",
+  "squat_rack",
+  "leg_press",
+  "pull_up_bar",
+];
+
+describe("generateFullbodyX2", () => {
+  it("creates 2 days of 5-7 exercises with full gym equipment", () => {
+    const plan = generateFullbodyX2(FULL_GYM);
+    expect(plan.days).toHaveLength(2);
+    expect(plan.days[0]!.name).toBe("Ganzkörper A");
+    expect(plan.days[1]!.name).toBe("Ganzkörper B");
+    expect(plan.days[0]!.exercises.length).toBeGreaterThanOrEqual(5);
+    expect(plan.days[1]!.exercises.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("Mike-konform: Day A enthält Hamstring iso (Beinbeuger) statt Calves", () => {
+    const plan = generateFullbodyX2(FULL_GYM);
+    const dayA = plan.days[0]!;
+    const hamstring = dayA.exercises.find((e) =>
+      ["seated-leg-curl", "lying-leg-curl"].includes(e.exerciseSlug),
+    );
+    expect(hamstring).toBeDefined();
+  });
+
+  it("Mike-konform: Day B hat KEIN Schulterdrücken (Front-Press redundant)", () => {
+    const plan = generateFullbodyX2(FULL_GYM);
+    const dayB = plan.days[1]!;
+    const frontPress = dayB.exercises.find((e) =>
+      ["overhead-press-barbell", "seated-dumbbell-press"].includes(e.exerciseSlug),
+    );
+    expect(frontPress).toBeUndefined();
+  });
+
+  it("Mike-konform: Day B hat Rear Delts und Calves", () => {
+    const plan = generateFullbodyX2(FULL_GYM);
+    const dayB = plan.days[1]!;
+    const rearDelt = dayB.exercises.find((e) =>
+      ["rear-delt-fly-cable", "face-pull"].includes(e.exerciseSlug),
+    );
+    const calves = dayB.exercises.find((e) =>
+      ["calf-press-leg-press", "standing-calf-raise"].includes(e.exerciseSlug),
+    );
+    expect(rearDelt).toBeDefined();
+    expect(calves).toBeDefined();
+  });
+
+  it("sets warmup sets correctly (first exercise gets more)", () => {
+    const plan = generateFullbodyX2(FULL_GYM);
+    const dayA = plan.days[0]!;
+    expect(dayA.exercises[0]!.warmupSets).toBe(2);
+    expect(dayA.exercises[1]!.warmupSets).toBe(1);
+  });
+
+  it("targets Mitte der Range — Iron Mike 5-7 ergibt 6", () => {
+    const plan = generateFullbodyX2(FULL_GYM, {
+      workingSetsPerExercise: 2,
+      repRangeMin: 5,
+      repRangeMax: 7,
+      preferredRirMin: 0,
+      preferredRirMax: 1,
+    });
+    const ex = plan.days[0]!.exercises[0]!;
+    expect(ex.targetSets).toBe(2);
+    expect(ex.targetReps).toBe(6); // Mitte von 5-7
+    expect(ex.targetRir).toBe(1); // Round von Mitte 0-1
+  });
+
+  it("classic style 8-12 reps gives target 10", () => {
+    const plan = generateFullbodyX2(FULL_GYM, {
+      workingSetsPerExercise: 3,
+      repRangeMin: 8,
+      repRangeMax: 12,
+      preferredRirMin: 1,
+      preferredRirMax: 3,
+    });
+    const ex = plan.days[0]!.exercises[0]!;
+    expect(ex.targetSets).toBe(3);
+    expect(ex.targetReps).toBe(10);
+    expect(ex.targetRir).toBe(2);
+  });
+
+  it("Mike-konform: prefers leg-press over back-squat for quads", () => {
+    // Selbst mit Squat-Rack VERFÜGBAR — Mike sagt Beinpresse first
+    const plan = generateFullbodyX2(["barbell", "squat_rack", "leg_press", "bench"]);
+    const dayA = plan.days[0]!;
+    expect(dayA.exercises[0]!.exerciseSlug).toBe("leg-press");
+  });
+
+  it("Mike-konform: prefers Pec Deck (machine) over Bench Press for chest", () => {
+    const plan = generateFullbodyX2(["barbell", "bench", "squat_rack", "machine"]);
+    const dayA = plan.days[0]!;
+    const chestExercise = dayA.exercises.find((e) =>
+      [
+        "barbell-bench-press",
+        "dumbbell-bench-press",
+        "cable-crossover",
+        "chest-fly-machine",
+      ].includes(e.exerciseSlug),
+    );
+    expect(chestExercise?.exerciseSlug).toBe("chest-fly-machine");
+  });
+
+  it("falls back to dumbbell-bench when no machine/cable/rack", () => {
+    const plan = generateFullbodyX2(["dumbbell", "bench"]);
+    const dayA = plan.days[0]!;
+    const chestExercise = dayA.exercises.find((e) =>
+      [
+        "barbell-bench-press",
+        "dumbbell-bench-press",
+        "cable-crossover",
+        "chest-fly-machine",
+      ].includes(e.exerciseSlug),
+    );
+    expect(chestExercise?.exerciseSlug).toBe("dumbbell-bench-press");
+  });
+
+  it("uses back-squat as last resort (only when no leg-press, hack, leg-extension)", () => {
+    // Nur Langhantel-Setup, keine Maschinen
+    const plan = generateFullbodyX2(["barbell", "squat_rack", "bench", "dumbbell"]);
+    const dayA = plan.days[0]!;
+    expect(dayA.exercises[0]!.exerciseSlug).toBe("back-squat");
+  });
+
+  it("skips exercise slots when no equipment matches", () => {
+    // Bodyweight + cable only — no leg movement possible
+    const plan = generateFullbodyX2(["bodyweight", "cable", "pull_up_bar"]);
+    const dayA = plan.days[0]!;
+    // Squat slot should be empty (no barbell, no leg_press, no machine)
+    const hasSquatExercise = dayA.exercises.some((e) =>
+      ["back-squat", "leg-press", "hack-squat"].includes(e.exerciseSlug),
+    );
+    expect(hasSquatExercise).toBe(false);
+    // But should still have at least pulldown + tricep-pushdown
+    expect(dayA.exercises.some((e) => e.exerciseSlug === "lat-pulldown")).toBe(true);
+  });
+
+  it("dedupes within a day if same slug picked twice", () => {
+    const plan = generateFullbodyX2(["dumbbell", "bench"]);
+    const dayB = plan.days[1]!;
+    const slugs = dayB.exercises.map((e) => e.exerciseSlug);
+    const unique = new Set(slugs);
+    expect(slugs.length).toBe(unique.size);
+  });
+});
+
+describe("generateHomeQuick30", () => {
+  it("creates 2 days with KB+Band+Bodyweight", () => {
+    const plan = generateHomeQuick30(["kettlebell", "resistance_band", "bodyweight"]);
+    expect(plan.name).toBe("Home Quick 30");
+    expect(plan.days).toHaveLength(2);
+    expect(plan.days[0]!.name).toBe("Home A — Push");
+    expect(plan.days[1]!.name).toBe("Home B — Pull");
+    expect(plan.days[0]!.exercises.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("prefers KB over Band over Bodyweight", () => {
+    const plan = generateHomeQuick30(["kettlebell", "resistance_band", "bodyweight"]);
+    const press = plan.days[0]!.exercises.find((e) =>
+      ["kb-floor-press", "band-press", "push-up"].includes(e.exerciseSlug),
+    );
+    expect(press?.exerciseSlug).toBe("kb-floor-press");
+  });
+
+  it("falls back to bands when no KB", () => {
+    const plan = generateHomeQuick30(["resistance_band", "bodyweight"]);
+    const press = plan.days[0]!.exercises.find((e) =>
+      ["kb-floor-press", "band-press", "push-up"].includes(e.exerciseSlug),
+    );
+    expect(press?.exerciseSlug).toBe("band-press");
+  });
+
+  it("falls back to bodyweight when no KB and no bands", () => {
+    const plan = generateHomeQuick30(["bodyweight"]);
+    const press = plan.days[0]!.exercises.find((e) =>
+      ["kb-floor-press", "band-press", "push-up"].includes(e.exerciseSlug),
+    );
+    expect(press?.exerciseSlug).toBe("push-up");
+  });
+
+  it("uses minimal warmup sets for home (1 instead of 2)", () => {
+    const plan = generateHomeQuick30(["kettlebell", "resistance_band"]);
+    expect(plan.days[0]!.exercises[0]!.warmupSets).toBe(1);
+  });
+
+  it("picks TRX-row over band-row when both available (Day B horizontal pull)", () => {
+    const plan = generateHomeQuick30(["kettlebell", "trx", "resistance_band", "bodyweight"]);
+    const dayB = plan.days[1]!;
+    const horizontalPull = dayB.exercises.find((e) =>
+      ["trx-row", "kb-row-bent", "band-row-seated", "inverted-row"].includes(e.exerciseSlug),
+    );
+    expect(horizontalPull?.exerciseSlug).toBe("trx-row");
+  });
+
+  it("uses TRX BSS as quad fallback when only TRX + bodyweight available", () => {
+    const plan = generateHomeQuick30(["trx", "bodyweight"]);
+    const dayA = plan.days[0]!;
+    const quadEx = dayA.exercises.find((e) =>
+      [
+        "kb-bulgarian-split-squat",
+        "trx-bulgarian-split-squat",
+        "bw-bulgarian-split-squat",
+      ].includes(e.exerciseSlug),
+    );
+    expect(quadEx?.exerciseSlug).toBe("trx-bulgarian-split-squat");
+  });
+});
+
+describe("generatePlanForLocation", () => {
+  it("returns Iron Mike plan for 'gym'", () => {
+    const plan = generatePlanForLocation("gym", [
+      "barbell",
+      "bench",
+      "squat_rack",
+      "cable",
+      "dumbbell",
+    ]);
+    expect(plan.name).toBe("GK 2× — Iron Mike");
+  });
+
+  it("returns Home Quick plan for 'home'", () => {
+    const plan = generatePlanForLocation("home", ["kettlebell", "resistance_band"]);
+    expect(plan.name).toBe("Home Quick 30");
+  });
+
+  it("returns Home Quick plan for 'travel'", () => {
+    const plan = generatePlanForLocation("travel", ["resistance_band"]);
+    expect(plan.name).toBe("Home Quick 30");
+  });
+
+  it("returns Iron Mike plan for unknown custom locations", () => {
+    const plan = generatePlanForLocation("custom-1", ["barbell", "squat_rack"]);
+    expect(plan.name).toBe("GK 2× — Iron Mike");
+  });
+});

@@ -79,6 +79,7 @@ export const equipmentType = pgEnum("equipment_type", [
   "bodyweight",
   "kettlebell",
   "resistance_band",
+  "trx",
   "smith_machine",
   "leg_press",
   "pull_up_bar",

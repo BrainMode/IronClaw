@@ -21,6 +21,15 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        # YOUTUBE_DL_SKIP_DOWNLOAD: youtube-dl-exec postinstall holt yt-dlp
+        # vom GitHub-Releases-API. CI-Runner teilen sich IP → Rate-Limit hits.
+        # Binary wird nur im Recipe-Worker (Phase 4 runtime) gebraucht, nicht
+        # für typecheck/lint/test/build.
+        # YOUTUBE_DL_SKIP_PYTHON_CHECK: yt-dlp braucht Python — auf Linux Runner
+        # vorhanden, aber wir wollen identisches Verhalten wie lokal (Windows).
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: "true"
+          YOUTUBE_DL_SKIP_PYTHON_CHECK: "1"
         run: npm ci
 
       - name: Type check
@@ -55,6 +64,15 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        # YOUTUBE_DL_SKIP_DOWNLOAD: youtube-dl-exec postinstall holt yt-dlp
+        # vom GitHub-Releases-API. CI-Runner teilen sich IP → Rate-Limit hits.
+        # Binary wird nur im Recipe-Worker (Phase 4 runtime) gebraucht, nicht
+        # für typecheck/lint/test/build.
+        # YOUTUBE_DL_SKIP_PYTHON_CHECK: yt-dlp braucht Python — auf Linux Runner
+        # vorhanden, aber wir wollen identisches Verhalten wie lokal (Windows).
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: "true"
+          YOUTUBE_DL_SKIP_PYTHON_CHECK: "1"
         run: npm ci
 
       - name: Build
