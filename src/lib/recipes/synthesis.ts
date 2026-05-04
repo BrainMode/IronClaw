@@ -167,12 +167,15 @@ function escapeXml(s: string): string {
  * Implementation: bei Build via Vite/Webpack inlinen (`?raw` import).
  * Hier: read at runtime — Claude Code muss eine sinnvolle Variante wählen.
  */
+let cachedPrompt: string | null = null;
 async function loadRecipeExtractionPrompt(): Promise<string> {
-  // For Next.js: use fs.readFile in API route, or import as ?raw via webpack rule.
-  // Stub für jetzt — Claude Code: implementieren.
-  throw new Error(
-    "Not implemented — Claude Code: load src/lib/ai/prompts/recipe-extraction.md as string",
-  );
+  if (cachedPrompt) return cachedPrompt;
+  // Server-side only — Next.js bundles fs into the route handler.
+  const { readFile } = await import("node:fs/promises");
+  const path = await import("node:path");
+  const promptPath = path.join(process.cwd(), "src/lib/ai/prompts/recipe-extraction.md");
+  cachedPrompt = await readFile(promptPath, "utf8");
+  return cachedPrompt;
 }
 
 // Re-export for convenience
