@@ -13,6 +13,15 @@ export default async function TrainingSetupPage() {
           Home Gym.
         </p>
       </div>
+
+      <p className="text-sm text-(--color-muted-foreground) border-l-2 border-(--color-border) pl-3">
+        Tipp: Wenn du Stil / Frequenz / Ziele neu kalibrieren willst,{" "}
+        <a href="/training/setup/anamnese" className="underline text-(--color-foreground)">
+          starte die Coach-Anamnese
+        </a>{" "}
+        vor dem Equipment-Setup.
+      </p>
+
       <SetupWizard initial={locations} />
     </div>
   );

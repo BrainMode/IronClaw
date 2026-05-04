@@ -143,6 +143,22 @@ export default async function TrainingPage() {
         </div>
       )}
 
+      <Card className="border-dashed">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-medium text-sm">Trainings-Profil neu kalibrieren</div>
+              <div className="text-xs text-(--color-muted-foreground)">
+                Coach-Anamnese (~5 Fragen): Stil, Frequenz, Ziele, Verletzungen
+              </div>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/training/setup/anamnese">Coach starten</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end pt-2">
         <Link
           href="/training/setup"
