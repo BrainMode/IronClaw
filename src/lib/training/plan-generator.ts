@@ -25,6 +25,7 @@ export type EquipmentType =
   | "bodyweight"
   | "kettlebell"
   | "resistance_band"
+  | "trx"
   | "smith_machine"
   | "leg_press"
   | "pull_up_bar"
@@ -237,7 +238,9 @@ const HOME_DAY_A_SLOTS: Slot[] = [
   {
     name: "Quads (Squat / Lunge)",
     options: [
+      // KB BSS first (loaded), TRX BSS for stability + range, KB Goblet, BW
       { slug: "kb-bulgarian-split-squat", requires: ["kettlebell"] },
+      { slug: "trx-bulgarian-split-squat", requires: ["trx"] },
       { slug: "kb-goblet-squat", requires: ["kettlebell"] },
       { slug: "bw-bulgarian-split-squat", requires: ["bodyweight"] },
     ],
@@ -246,6 +249,7 @@ const HOME_DAY_A_SLOTS: Slot[] = [
     name: "Horizontal Press (Chest)",
     options: [
       { slug: "kb-floor-press", requires: ["kettlebell"] },
+      { slug: "trx-push-up", requires: ["trx"] },
       { slug: "band-press", requires: ["resistance_band"] },
       { slug: "push-up", requires: ["bodyweight"] },
     ],
@@ -253,6 +257,7 @@ const HOME_DAY_A_SLOTS: Slot[] = [
   {
     name: "Vertical Pull (Lats)",
     options: [
+      // TRX bietet keinen Vertical-Pull — Band oder BW Inverted-Row
       { slug: "band-pulldown", requires: ["resistance_band"] },
       { slug: "inverted-row", requires: ["bodyweight"] },
     ],
@@ -261,6 +266,7 @@ const HOME_DAY_A_SLOTS: Slot[] = [
     name: "Tricep (long head stretch)",
     options: [
       { slug: "kb-tricep-extension", requires: ["kettlebell"] },
+      { slug: "trx-tricep-extension", requires: ["trx"] },
       { slug: "band-overhead-tricep", requires: ["resistance_band"] },
     ],
   },
@@ -268,6 +274,7 @@ const HOME_DAY_A_SLOTS: Slot[] = [
     name: "Bicep",
     options: [
       { slug: "kb-curl", requires: ["kettlebell"] },
+      { slug: "trx-curl", requires: ["trx"] },
       { slug: "band-curl", requires: ["resistance_band"] },
     ],
   },
@@ -277,6 +284,7 @@ const HOME_DAY_B_SLOTS: Slot[] = [
   {
     name: "Hip Hinge (Hamstrings/Glutes)",
     options: [
+      // TRX hat keinen sinnvollen Hinge — KB ist hier optimal
       { slug: "kb-swing", requires: ["kettlebell"] },
       { slug: "kb-rdl", requires: ["kettlebell"] },
       { slug: "kb-suitcase-deadlift", requires: ["kettlebell"] },
@@ -285,6 +293,8 @@ const HOME_DAY_B_SLOTS: Slot[] = [
   {
     name: "Horizontal Pull (Back upper)",
     options: [
+      // TRX-Row ist exzellent — gleichwertig zu KB Bent Row, oft bevorzugt
+      { slug: "trx-row", requires: ["trx"] },
       { slug: "kb-row-bent", requires: ["kettlebell"] },
       { slug: "band-row-seated", requires: ["resistance_band"] },
       { slug: "inverted-row", requires: ["bodyweight"] },
@@ -294,6 +304,7 @@ const HOME_DAY_B_SLOTS: Slot[] = [
     name: "Vertical Press (Shoulders)",
     options: [
       { slug: "kb-press-overhead", requires: ["kettlebell"] },
+      { slug: "trx-pike", requires: ["trx"] },
       { slug: "bw-pike-push-up", requires: ["bodyweight"] },
     ],
   },

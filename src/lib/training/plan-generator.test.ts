@@ -121,6 +121,28 @@ describe("generateHomeQuick30", () => {
     const plan = generateHomeQuick30(["kettlebell", "resistance_band"]);
     expect(plan.days[0]!.exercises[0]!.warmupSets).toBe(1);
   });
+
+  it("picks TRX-row over band-row when both available (Day B horizontal pull)", () => {
+    const plan = generateHomeQuick30(["kettlebell", "trx", "resistance_band", "bodyweight"]);
+    const dayB = plan.days[1]!;
+    const horizontalPull = dayB.exercises.find((e) =>
+      ["trx-row", "kb-row-bent", "band-row-seated", "inverted-row"].includes(e.exerciseSlug),
+    );
+    expect(horizontalPull?.exerciseSlug).toBe("trx-row");
+  });
+
+  it("uses TRX BSS as quad fallback when only TRX + bodyweight available", () => {
+    const plan = generateHomeQuick30(["trx", "bodyweight"]);
+    const dayA = plan.days[0]!;
+    const quadEx = dayA.exercises.find((e) =>
+      [
+        "kb-bulgarian-split-squat",
+        "trx-bulgarian-split-squat",
+        "bw-bulgarian-split-squat",
+      ].includes(e.exerciseSlug),
+    );
+    expect(quadEx?.exerciseSlug).toBe("trx-bulgarian-split-squat");
+  });
 });
 
 describe("generatePlanForLocation", () => {

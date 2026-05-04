@@ -71,6 +71,12 @@ const OPTIONS: EquipmentOption[] = [
     defaultIn: ["home", "travel"],
   },
   {
+    key: "trx",
+    label: "TRX (Suspension Trainer)",
+    group: "Bodyweight",
+    defaultIn: ["home"],
+  },
+  {
     key: "bodyweight",
     label: "Nur Körpergewicht (Push-up, etc.)",
     group: "Bodyweight",
