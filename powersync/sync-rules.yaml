@@ -1,0 +1,72 @@
+# =============================================================================
+# WDC Fitness — PowerSync Sync Rules
+# =============================================================================
+# Diese Regeln definieren WAS in welche Client-DB synct.
+# Hochladen ins PowerSync Dashboard → Sync Rules.
+# Doku: https://docs.powersync.com/usage/sync-rules
+# =============================================================================
+
+# Bucket-Definitionen
+# Jeder Bucket = eine Gruppe von Daten, die zu einem User-Set gehört.
+
+bucket_definitions:
+  # Recipes: household-shared (beide User sehen)
+  household_recipes:
+    parameters:
+      - SELECT household_id as household_id
+        FROM household_members
+        WHERE user_id = request.user_id()
+    data:
+      - SELECT * FROM recipes WHERE household_id = bucket.household_id
+      - SELECT * FROM recipe_ingredients
+        WHERE recipe_id IN (
+          SELECT id FROM recipes WHERE household_id = bucket.household_id
+        )
+      - SELECT * FROM recipe_steps
+        WHERE recipe_id IN (
+          SELECT id FROM recipes WHERE household_id = bucket.household_id
+        )
+
+  # Catalog (geteilt zwischen ALLEN Usern, read-only client-seitig)
+  global_catalog:
+    parameters:
+      - SELECT 1 as ok
+    data:
+      - SELECT * FROM exercises
+      - SELECT * FROM food_items_cache
+
+  # User-spezifische Daten (NUR für den jeweiligen User)
+  user_personal:
+    parameters:
+      - SELECT request.user_id() as user_id
+    data:
+      - SELECT * FROM macro_targets WHERE user_id = bucket.user_id
+      - SELECT * FROM nutrition_logs WHERE user_id = bucket.user_id
+      - SELECT * FROM user_equipment WHERE user_id = bucket.user_id
+      - SELECT * FROM training_plans WHERE user_id = bucket.user_id
+      - SELECT * FROM training_plan_days
+        WHERE plan_id IN (
+          SELECT id FROM training_plans WHERE user_id = bucket.user_id
+        )
+      - SELECT * FROM training_plan_exercises
+        WHERE plan_day_id IN (
+          SELECT d.id FROM training_plan_days d
+          JOIN training_plans p ON p.id = d.plan_id
+          WHERE p.user_id = bucket.user_id
+        )
+      - SELECT * FROM exercise_substitutions WHERE user_id = bucket.user_id
+      - SELECT * FROM workout_sessions WHERE user_id = bucket.user_id
+      - SELECT * FROM workout_sets
+        WHERE session_id IN (
+          SELECT id FROM workout_sessions WHERE user_id = bucket.user_id
+        )
+      - SELECT * FROM body_metrics WHERE user_id = bucket.user_id
+      - SELECT * FROM activities WHERE user_id = bucket.user_id
+
+  # Chat-History (user-scoped, schon per RLS abgesichert)
+  user_chat:
+    parameters:
+      - SELECT request.user_id() as user_id
+    data:
+      - SELECT * FROM chat_threads WHERE user_id = bucket.user_id
+      - SELECT * FROM chat_messages WHERE user_id = bucket.user_id
