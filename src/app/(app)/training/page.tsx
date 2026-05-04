@@ -16,7 +16,7 @@ export default async function TrainingPage() {
   const locations = await getLocations();
 
   if (locations.length === 0) {
-    redirect("/training/setup");
+    redirect("/training/setup/anamnese");
   }
 
   const allPlans = await getAllActivePlans();

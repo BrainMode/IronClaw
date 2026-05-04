@@ -81,20 +81,26 @@ function pickByEquipment(options: ExerciseOption[], available: EquipmentType[]):
 /** Mike fullbody_x2 — Day A */
 const DAY_A_SLOTS: { name: string; options: ExerciseOption[] }[] = [
   {
-    name: "Squat (Quads compound)",
+    name: "Quads (Mike: Beinpresse first, Kniebeuge nicht primär)",
+    // Mike ist explizit: Kniebeuge ist nicht der effektivste Weg (aktive
+    // Insuffizienz vom Rectus Femoris). Bevorzuge Beinpresse + Beinstrecker.
+    // Kniebeuge nur wenn nichts anderes da ist.
     options: [
-      { slug: "back-squat", requires: ["barbell", "squat_rack"] },
       { slug: "leg-press", requires: ["leg_press"] },
       { slug: "hack-squat", requires: ["machine"] },
+      { slug: "leg-extension", requires: ["machine"] },
+      { slug: "back-squat", requires: ["barbell", "squat_rack"] },
     ],
   },
   {
-    name: "Horizontal Press (Chest)",
+    name: "Chest (Mike: Maschine/Cable bevorzugt vor Bench)",
+    // Mike-Empfehlung Brust: Pec Deck (Butterfly) + Cable Crossover für
+    // konstante Spannung über ROM. Bench Press ist OK aber nicht primär.
     options: [
-      { slug: "barbell-bench-press", requires: ["barbell", "bench", "squat_rack"] },
-      { slug: "dumbbell-bench-press", requires: ["dumbbell", "bench"] },
-      { slug: "cable-crossover", requires: ["cable"] },
       { slug: "chest-fly-machine", requires: ["machine"] },
+      { slug: "cable-crossover", requires: ["cable"] },
+      { slug: "dumbbell-bench-press", requires: ["dumbbell", "bench"] },
+      { slug: "barbell-bench-press", requires: ["barbell", "bench", "squat_rack"] },
     ],
   },
   {

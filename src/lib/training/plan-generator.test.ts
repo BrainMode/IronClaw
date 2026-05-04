@@ -46,19 +46,46 @@ describe("generateFullbodyX2", () => {
     expect(ex.targetRir).toBe(1);
   });
 
-  it("falls back to dumbbell-bench when no barbell", () => {
-    const plan = generateFullbodyX2(["dumbbell", "bench", "cable", "machine"]);
+  it("Mike-konform: prefers leg-press over back-squat for quads", () => {
+    // Selbst mit Squat-Rack VERFÜGBAR — Mike sagt Beinpresse first
+    const plan = generateFullbodyX2(["barbell", "squat_rack", "leg_press", "bench"]);
+    const dayA = plan.days[0]!;
+    expect(dayA.exercises[0]!.exerciseSlug).toBe("leg-press");
+  });
+
+  it("Mike-konform: prefers Pec Deck (machine) over Bench Press for chest", () => {
+    const plan = generateFullbodyX2(["barbell", "bench", "squat_rack", "machine"]);
     const dayA = plan.days[0]!;
     const chestExercise = dayA.exercises.find((e) =>
-      ["barbell-bench-press", "dumbbell-bench-press", "cable-crossover"].includes(e.exerciseSlug),
+      [
+        "barbell-bench-press",
+        "dumbbell-bench-press",
+        "cable-crossover",
+        "chest-fly-machine",
+      ].includes(e.exerciseSlug),
+    );
+    expect(chestExercise?.exerciseSlug).toBe("chest-fly-machine");
+  });
+
+  it("falls back to dumbbell-bench when no machine/cable/rack", () => {
+    const plan = generateFullbodyX2(["dumbbell", "bench"]);
+    const dayA = plan.days[0]!;
+    const chestExercise = dayA.exercises.find((e) =>
+      [
+        "barbell-bench-press",
+        "dumbbell-bench-press",
+        "cable-crossover",
+        "chest-fly-machine",
+      ].includes(e.exerciseSlug),
     );
     expect(chestExercise?.exerciseSlug).toBe("dumbbell-bench-press");
   });
 
-  it("falls back to leg-press when no squat-rack", () => {
-    const plan = generateFullbodyX2(["dumbbell", "bench", "cable", "leg_press"]);
+  it("uses back-squat as last resort (only when no leg-press, hack, leg-extension)", () => {
+    // Nur Langhantel-Setup, keine Maschinen
+    const plan = generateFullbodyX2(["barbell", "squat_rack", "bench", "dumbbell"]);
     const dayA = plan.days[0]!;
-    expect(dayA.exercises[0]!.exerciseSlug).toBe("leg-press");
+    expect(dayA.exercises[0]!.exerciseSlug).toBe("back-squat");
   });
 
   it("skips exercise slots when no equipment matches", () => {
