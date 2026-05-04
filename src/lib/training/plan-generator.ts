@@ -127,11 +127,13 @@ const DAY_A_SLOTS: { name: string; options: ExerciseOption[] }[] = [
     ],
   },
   {
-    name: "Calves",
+    // Mike trifft jeden Muskel 2×/Woche — bei Ganzkörper braucht Day A
+    // einen Hamstring-Stimulus, sonst ist nur Day B-RDL der einzige Hamstring-Hit.
+    // Beinbeuger sitzend ist Mike's bevorzugte Hamstring-Iso (Knie-Flexion).
+    name: "Hamstring iso (Mike: Beinbeuger als zweite Bein-Übung)",
     options: [
-      { slug: "calf-press-leg-press", requires: ["leg_press"] },
-      { slug: "standing-calf-raise", requires: ["machine"] },
-      { slug: "standing-calf-raise", requires: ["dumbbell"] },
+      { slug: "seated-leg-curl", requires: ["machine"] },
+      { slug: "lying-leg-curl", requires: ["machine"] },
     ],
   },
 ];
@@ -164,10 +166,13 @@ const DAY_B_SLOTS: { name: string; options: ExerciseOption[] }[] = [
     ],
   },
   {
-    name: "Vertical Press (Front Delts)",
+    // Mike: Front-Press ist NICHT nötig — Frontdelt wird durch Brust-Pressen
+    // schon getroffen. Stattdessen: Rear Delt explizit, da Posture-relevant
+    // und sonst unterrepräsentiert.
+    name: "Rear Delts (Mike: hinterer Delta wichtig, Front-Press redundant)",
     options: [
-      { slug: "overhead-press-barbell", requires: ["barbell", "squat_rack"] },
-      { slug: "seated-dumbbell-press", requires: ["dumbbell", "bench"] },
+      { slug: "rear-delt-fly-cable", requires: ["cable"] },
+      { slug: "face-pull", requires: ["cable"] },
     ],
   },
   {
@@ -182,6 +187,14 @@ const DAY_B_SLOTS: { name: string; options: ExerciseOption[] }[] = [
     options: [
       { slug: "hip-thrust", requires: ["barbell", "bench"] },
       { slug: "hip-thrust", requires: ["dumbbell", "bench"] },
+    ],
+  },
+  {
+    name: "Calves (1×/Woche reicht — Mike priorisiert nicht)",
+    options: [
+      { slug: "calf-press-leg-press", requires: ["leg_press"] },
+      { slug: "standing-calf-raise", requires: ["machine"] },
+      { slug: "standing-calf-raise", requires: ["dumbbell"] },
     ],
   },
 ];

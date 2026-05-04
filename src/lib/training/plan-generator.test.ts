@@ -18,13 +18,44 @@ const FULL_GYM: EquipmentType[] = [
 ];
 
 describe("generateFullbodyX2", () => {
-  it("creates 2 days of 5-6 exercises with full gym equipment", () => {
+  it("creates 2 days of 5-7 exercises with full gym equipment", () => {
     const plan = generateFullbodyX2(FULL_GYM);
     expect(plan.days).toHaveLength(2);
     expect(plan.days[0]!.name).toBe("Ganzkörper A");
     expect(plan.days[1]!.name).toBe("Ganzkörper B");
     expect(plan.days[0]!.exercises.length).toBeGreaterThanOrEqual(5);
     expect(plan.days[1]!.exercises.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("Mike-konform: Day A enthält Hamstring iso (Beinbeuger) statt Calves", () => {
+    const plan = generateFullbodyX2(FULL_GYM);
+    const dayA = plan.days[0]!;
+    const hamstring = dayA.exercises.find((e) =>
+      ["seated-leg-curl", "lying-leg-curl"].includes(e.exerciseSlug),
+    );
+    expect(hamstring).toBeDefined();
+  });
+
+  it("Mike-konform: Day B hat KEIN Schulterdrücken (Front-Press redundant)", () => {
+    const plan = generateFullbodyX2(FULL_GYM);
+    const dayB = plan.days[1]!;
+    const frontPress = dayB.exercises.find((e) =>
+      ["overhead-press-barbell", "seated-dumbbell-press"].includes(e.exerciseSlug),
+    );
+    expect(frontPress).toBeUndefined();
+  });
+
+  it("Mike-konform: Day B hat Rear Delts und Calves", () => {
+    const plan = generateFullbodyX2(FULL_GYM);
+    const dayB = plan.days[1]!;
+    const rearDelt = dayB.exercises.find((e) =>
+      ["rear-delt-fly-cable", "face-pull"].includes(e.exerciseSlug),
+    );
+    const calves = dayB.exercises.find((e) =>
+      ["calf-press-leg-press", "standing-calf-raise"].includes(e.exerciseSlug),
+    );
+    expect(rearDelt).toBeDefined();
+    expect(calves).toBeDefined();
   });
 
   it("sets warmup sets correctly (first exercise gets more)", () => {
